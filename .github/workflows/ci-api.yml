@@ -1,0 +1,58 @@
+name: CI API
+
+on:
+  pull_request:
+    branches: [develop]
+  push:
+    branches: [develop, main]
+  workflow_dispatch:
+
+jobs:
+  build-test-sonar:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: NPM defaults
+        run: |
+          npm config set fund false
+          npm config set audit false
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
+            echo "✅ Lockfile detectado: usando npm ci"
+            npm ci --no-audit --no-fund
+          else
+            echo "ℹ️  Sin lockfile: usando npm install"
+            npm install --no-audit --no-fund
+          fi
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@v2
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.organization=${{ secrets.SONAR_ORG }}
+            -Dsonar.projectKey=eco-ride-api
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
