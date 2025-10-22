@@ -1,0 +1,37 @@
+name: Release API
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Build project
+        run: npm run build
+
+      - name: Package artifact
+        run: |
+          mkdir -p release
+          cp -r dist package.json .env.example release/
+          cd release && zip -r eco-ride-api-${GITHUB_REF_NAME}.zip .
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/eco-ride-api-${{ github.ref_name }}.zip
+          generate_release_notes: true
