@@ -11,7 +11,9 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "lint": "echo \"add eslint later\""
+    "lint": "echo \"add eslint later\"",
+    "test": "vitest",
+    "test:coverage": "vitest run jest --coverage"
   },
   "repository": {
     "type": "git",
