@@ -1,2 +1,5 @@
-node_modules
+# Ignore VSCode settings folder
+.vscode/
+#  Ignore node modules and lock files
+node_modules/
 package-lock.json
