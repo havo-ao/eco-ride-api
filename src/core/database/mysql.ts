@@ -10,5 +10,6 @@ export const db = mysql.createPool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   connectionLimit: 10,
+  connectTimeout: 10000, // 10 segundos
   multipleStatements: true,
 });
