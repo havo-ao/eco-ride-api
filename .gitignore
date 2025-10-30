@@ -1,8 +1,12 @@
 # Ignore VSCode settings folder
 .vscode/
-#  Ignore node modules and lock files
+
+# Ignore node modules and lock files
 node_modules/
 package-lock.json
 
 # Ignore environment variable files
 .env
+
+# Ignore coverage reports
+coverage/
