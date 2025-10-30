@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "echo \"add eslint later\"",
     "test": "vitest",
-    "test:coverage": "vitest run jest --coverage"
+    "test:coverage": "vitest run --coverage"
   },
   "repository": {
     "type": "git",
@@ -40,8 +40,10 @@
     "@types/cors": "2.8.19",
     "@types/express": "5.0.3",
     "@types/node": "24.9.1",
+    "@vitest/coverage-v8": "4.0.5",
     "nodemon": "3.1.10",
     "ts-node": "10.9.2",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "4.0.5"
   }
 }

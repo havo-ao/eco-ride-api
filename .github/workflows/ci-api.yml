@@ -31,13 +31,10 @@ jobs:
           npm config set audit false
 
       - name: Install dependencies
-        shell: bash
         run: |
           if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
-            echo "✅ Lockfile detectado: usando npm ci"
             npm ci --no-audit --no-fund
           else
-            echo "ℹ️  Sin lockfile: usando npm install"
             npm install --no-audit --no-fund
           fi
 
@@ -47,7 +44,10 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: SonarCloud Scan
+      - name: Run tests with coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage to SonarCloud
         uses: SonarSource/sonarcloud-github-action@v2
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -55,4 +55,7 @@ jobs:
           args: >
             -Dsonar.organization=${{ secrets.SONAR_ORG }}
             -Dsonar.projectKey=eco-ride-api
+            -Dsonar.sources=src
+            -Dsonar.tests=tests
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+            -Dsonar.exclusions=coverage/**,sql/**,node_modules/**,tests/**

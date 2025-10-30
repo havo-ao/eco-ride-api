@@ -1,4 +1,4 @@
-import { db } from '@/core/database/mysql';
+import { db } from '../../../core/database/mysql';
 import { RegisterUserDTO } from '../dtos/register.dto';
 import bcrypt from 'bcrypt';
 import { RowDataPacket } from 'mysql2';
