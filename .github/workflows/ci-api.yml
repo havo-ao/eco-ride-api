@@ -44,8 +44,10 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Run tests with coverage
+      - name: Run unit tests with coverage
         run: npm run test:coverage
+        env:
+          CI: true # Para que Vitest salte integración con describe.skip cuando CI=true
 
       - name: Upload coverage to SonarCloud
         uses: SonarSource/sonarcloud-github-action@v2
