@@ -31,10 +31,13 @@ jobs:
           npm config set audit false
 
       - name: Install dependencies
+        shell: bash
         run: |
           if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
+            echo "✅ Lockfile detectado: usando npm ci"
             npm ci --no-audit --no-fund
           else
+            echo "ℹ️  Sin lockfile: usando npm install"
             npm install --no-audit --no-fund
           fi
 
