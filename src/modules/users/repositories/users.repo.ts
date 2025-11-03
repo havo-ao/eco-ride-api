@@ -12,11 +12,12 @@ type RegisterResult = RowDataPacket & {
 export async function registerUser(dto: RegisterUserDTO) {
   const passwordHash = await bcrypt.hash(dto.password, 10);
 
-  await db.query('CALL sp_register_user(?, ?, ?, @status, @message, @user_id)', [
-    dto.email,
-    passwordHash,
-    dto.fullName,
-  ]);
+  await db.query('CALL sp_register_user(?, ?, ?, ?, @status, @message, @user_id)', [
+  dto.email,
+  passwordHash,
+  dto.firstName,
+  dto.lastName
+]);
 
   const [rows] = await db.query<RegisterResult[]>(
     'SELECT @status AS status, @message AS message, @user_id AS userId'
