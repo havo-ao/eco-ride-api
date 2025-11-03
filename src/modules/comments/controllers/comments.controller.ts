@@ -4,7 +4,7 @@ import {commentService} from '../services/comment.service';
 export async function createCommentController(req:Request, res: Response) {
     try{
     const result = await commentService.createComment(req.body);
-    res.status(200).json(result);
+    res.status(201).json(result);
     } catch(error){
         res.status(500).json({ status: 'ERROR', message: 'Error interno del servidor' });
     console.error('Error en createCommentController:', error);
