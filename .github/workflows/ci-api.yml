@@ -45,11 +45,11 @@ jobs:
         run: npm run lint
 
       - name: Run unit tests with coverage
-        run: npm run test:coverage
+        run: npm run test:ci
         env:
           CI: true
 
-      - name: Upload analysis to SonarCloud (tests ignored)
+      - name: Upload analysis to SonarCloud
         uses: SonarSource/sonarcloud-github-action@v2
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -59,4 +59,5 @@ jobs:
             -Dsonar.projectKey=eco-ride-api
             -Dsonar.sources=src
             -Dsonar.exclusions=coverage/**,sql/**,node_modules/**,**/*.test.ts,**/*.spec.ts
-            -Dsonar.coverage.exclusions=**/*
+            -Dsonar.coverage.exclusions=tests/**,sql/**,node_modules/**
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
