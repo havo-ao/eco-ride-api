@@ -3,9 +3,9 @@ import { RowDataPacket } from "mysql2/promise";
 
 export interface ReservationRecord {
   id: number;
-  user_id: number;
-  bike_id: number;
-  station_id: number;
+  userId: number;
+  bikeId: number;
+  stationId: number;
   stationName: string;
   bikeType: string;
   reservedAt: string;

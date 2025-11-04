@@ -13,6 +13,17 @@ export interface NearestStationRow extends RowDataPacket {
   availableElectric: number | string;
 }
 
+export interface StationWithAvailabilityRow extends RowDataPacket {
+  id: number | string;
+  name: string;
+  type: string;
+  capacity: number | string;
+  latitude: number | string;
+  longitude: number | string;
+  availableMechanical: number | string;
+  availableElectric: number | string;
+}
+
 export class StationRepository {
   async getNearest(
     lat: number,
@@ -25,5 +36,14 @@ export class StationRepository {
 
     const result = rows[0][0] as NearestStationRow | undefined;
     return result ?? null;
+  }
+
+  async getWithAvailability(): Promise<StationWithAvailabilityRow[]> {
+    const [rows] = await db.query<StationWithAvailabilityRow[][]>(
+      "CALL sp_get_stations_with_availability()"
+    );
+
+    const result = rows[0] as StationWithAvailabilityRow[];
+    return result;
   }
 }

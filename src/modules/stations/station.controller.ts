@@ -35,4 +35,17 @@ export class StationController {
       return next(error);
     }
   }
+
+  static async getWithAvailability(
+    _req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const stations = await service.getWithAvailability();
+      return res.json(stations);
+    } catch (error) {
+      return next(error);
+    }
+  }
 }
