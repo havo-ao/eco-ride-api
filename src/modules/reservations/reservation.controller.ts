@@ -19,6 +19,7 @@ export class ReservationController {
         return res.status(401).json({ message: "No autenticado" });
       }
       const result = await service.getActive(userId);
+      console.log("Reserva Activa: ", result);
       return res.json(result);
     } catch (error) {
       return next(error);

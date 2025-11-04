@@ -37,19 +37,17 @@ SET
   v_now = NOW ();
 
 UPDATE reservation r
-JOIN bike b ON r.bike_id = b.id
 SET
-  r.status = 'Expired',
-  b.status = 'Available'
+  r.status = 'Expired'
 WHERE
   r.status = 'Active'
   AND TIMESTAMPDIFF (MINUTE, r.reserved_at, v_now) >= 10;
 
 SELECT
   r.id,
-  r.user_id,
-  r.bike_id,
-  r.station_id,
+  r.user_id AS userId,
+  r.bike_id AS bikeId,
+  r.station_id AS stationId,
   s.name AS stationName,
   b.type AS bikeType,
   r.reserved_at AS reservedAt,
@@ -62,6 +60,8 @@ FROM
 WHERE
   r.user_id = p_user_id
   AND r.status = 'Active'
+ORDER BY
+  r.reserved_at DESC
 LIMIT
   1;
 
@@ -124,9 +124,9 @@ WHERE
 
 SELECT
   r.id,
-  r.user_id,
-  r.bike_id,
-  r.station_id,
+  r.user_id AS userId,
+  r.bike_id AS bikeId,
+  r.station_id AS stationId,
   s.name AS stationName,
   b.type AS bikeType,
   r.reserved_at AS reservedAt,
@@ -187,9 +187,9 @@ WHERE
 
 SELECT
   r.id,
-  r.user_id,
-  r.bike_id,
-  r.station_id,
+  r.user_id AS userId,
+  r.bike_id AS bikeId,
+  r.station_id AS stationId,
   s.name AS stationName,
   b.type AS bikeType,
   r.reserved_at AS reservedAt,
@@ -208,10 +208,8 @@ DROP PROCEDURE IF EXISTS sp_expire_reservations;
 
 CREATE PROCEDURE sp_expire_reservations () BEGIN
 UPDATE reservation r
-JOIN bike b ON r.bike_id = b.id
 SET
-  r.status = 'Expired',
-  b.status = 'Available'
+  r.status = 'Expired'
 WHERE
   r.status = 'Active'
   AND TIMESTAMPDIFF (MINUTE, r.reserved_at, NOW ()) >= 10;

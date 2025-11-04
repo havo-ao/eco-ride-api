@@ -1,1 +1,0 @@
-CALL sp_register_user('test@example.com', 'hashed_password', 'Test User');
