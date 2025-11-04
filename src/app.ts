@@ -12,10 +12,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Routes for all
 app.use("/api/auth", authRoutes);
 app.post("/api/users/register", registerUserController);
-app.use("/api/reservations", reservationRoutes);
+
+// Only Routes for Public
 app.use("/api/stations", stationRoutes);
+
+// Private Routes
 app.use("/api/reservations", authMiddleware, reservationRoutes);
 
 app.get("/health", (_, res) =>

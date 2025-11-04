@@ -1,5 +1,7 @@
 USE ecoride_db;
 
 ALTER TABLE station
-ADD COLUMN latitude DECIMAL(10, 6) NULL AFTER location,
-ADD COLUMN longitude DECIMAL(10, 6) NULL AFTER latitude;
+ADD COLUMN IF NOT EXISTS latitude DECIMAL(10, 6) NULL AFTER location;
+
+ALTER TABLE station
+ADD COLUMN IF NOT EXISTS longitude DECIMAL(10, 6) NULL AFTER latitude;

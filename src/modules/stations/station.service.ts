@@ -1,4 +1,18 @@
-import { StationRepository, NearestStationRecord } from "./station.repository";
+import { StationRepository, NearestStationRow } from "./station.repository";
+
+export type StationType = "Residential" | "Metro" | "Financial Center";
+
+export interface NearestStationRecord {
+  id: number;
+  name: string;
+  type: StationType;
+  capacity: number;
+  latitude: number;
+  longitude: number;
+  distanceMeters: number;
+  availableMechanical: number;
+  availableElectric: number;
+}
 
 export class StationService {
   private readonly repository = new StationRepository();
@@ -7,6 +21,19 @@ export class StationService {
     lat: number,
     lng: number
   ): Promise<NearestStationRecord | null> {
-    return this.repository.getNearest(lat, lng);
+    const row = await this.repository.getNearest(lat, lng);
+    if (!row) return null;
+
+    return {
+      id: Number(row.id),
+      name: row.name,
+      type: row.type as StationType,
+      capacity: Number(row.capacity),
+      latitude: Number(row.latitude),
+      longitude: Number(row.longitude),
+      distanceMeters: Number(row.distanceMeters),
+      availableMechanical: Number(row.availableMechanical),
+      availableElectric: Number(row.availableElectric),
+    };
   }
 }
