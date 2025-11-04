@@ -1,7 +1,7 @@
-import { db } from '../src/core/database/mysql';
-import fs from 'node:fs';
-import path from 'node:path';
-import { RowDataPacket } from 'mysql2';
+import { db } from "../src/core/database/mysql";
+import fs from "node:fs";
+import path from "node:path";
+import { RowDataPacket } from "mysql2";
 
 async function ensureMigrationTableExists() {
   try {
@@ -12,27 +12,27 @@ async function ensureMigrationTableExists() {
         executed_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    console.log('📦 Verified existence of migration table.');
+    console.log("📦 Verified existence of migration table.");
   } catch (err: any) {
-    console.error('❌ Failed to ensure migration table:', err.message);
+    console.error("❌ Failed to ensure migration table:", err.message);
     process.exit(1);
   }
 }
 
 async function runMigrations() {
-  console.log('🚀 Starting migrations...');
+  console.log("🚀 Starting migrations...");
 
   await ensureMigrationTableExists();
 
-  const migrationDir = path.join(__dirname, '../sql/migrations');
+  const migrationDir = path.join(__dirname, "../sql/migrations");
   const files = fs.readdirSync(migrationDir).sort();
 
   // Get already executed migrations
   const [executedRows] = await db.query<RowDataPacket[]>(
-    'SELECT name FROM migration'
+    "SELECT name FROM migration"
   );
   const executed = new Set(
-    (executedRows as RowDataPacket[]).map(row => row['name'] as string)
+    (executedRows as RowDataPacket[]).map((row) => row["name"] as string)
   );
 
   // Run only pending migrations
@@ -43,12 +43,12 @@ async function runMigrations() {
     }
 
     const filePath = path.join(migrationDir, file);
-    const sqlContent = fs.readFileSync(filePath, 'utf-8');
+    const sqlContent = fs.readFileSync(filePath, "utf-8");
 
     console.log(`📄 Executing migration: ${file}`);
     try {
       await db.query(sqlContent);
-      await db.query('INSERT INTO migration (name) VALUES (?)', [file]);
+      await db.query("INSERT INTO migration (name) VALUES (?)", [file]);
       console.log(`✅ Migration completed: ${file}`);
     } catch (err: any) {
       console.error(`❌ Error in migration ${file}: ${err.message}`);
@@ -56,11 +56,11 @@ async function runMigrations() {
     }
   }
 
-  console.log('🎯 All pending migrations processed.');
+  console.log("🎯 All pending migrations processed.");
   process.exit(0);
 }
 
-runMigrations().catch(err => {
-  console.error('❌ General migration error:', err);
+runMigrations().catch((err) => {
+  console.error("❌ General migration error:", err);
   process.exit(1);
 });
