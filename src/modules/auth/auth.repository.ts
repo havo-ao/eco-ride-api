@@ -4,18 +4,27 @@ import { RowDataPacket } from "mysql2/promise";
 export interface LoginUserRecord {
   id: number;
   email: string;
+  passwordHash: string;
 }
 
 export class AuthRepository {
-  async login(email: string, password: string): Promise<LoginUserRecord> {
-    const [rows] = await db.query<RowDataPacket[][]>(
-      "CALL sp_login_user(?, ?)",
-      [email, password]
-    );
-    const result = rows[0][0] as LoginUserRecord | undefined;
+  async findByEmail(email: string): Promise<LoginUserRecord | null> {
+    const [rows] = await db.query<RowDataPacket[][]>("CALL sp_login_user(?)", [
+      email,
+    ]);
+
+    const result = rows[0][0] as
+      | { id: number | string; email: string; passwordHash: string }
+      | undefined;
+
     if (!result) {
-      throw new Error("INVALID_CREDENTIALS");
+      return null;
     }
-    return result;
+
+    return {
+      id: Number(result.id),
+      email: result.email,
+      passwordHash: result.passwordHash,
+    };
   }
 }

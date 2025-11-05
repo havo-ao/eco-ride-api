@@ -1,4 +1,5 @@
 import jwt, { SignOptions } from "jsonwebtoken";
+import bcrypt from "bcrypt";
 import { AuthRepository, LoginUserRecord } from "./auth.repository";
 import { env } from "../../core/config/env";
 
@@ -26,15 +27,37 @@ export class AuthService {
 
   async login(email: string, password: string): Promise<LoginResult> {
     try {
-      const user = await this.repository.login(email, password);
+      const user: LoginUserRecord | null = await this.repository.findByEmail(
+        email
+      );
+
+      if (!user) {
+        throw new AuthError(
+          401,
+          "INVALID_CREDENTIALS",
+          "Credenciales inválidas"
+        );
+      }
+
+      const isValid = await bcrypt.compare(password, user.passwordHash);
+      if (!isValid) {
+        throw new AuthError(
+          401,
+          "INVALID_CREDENTIALS",
+          "Credenciales inválidas"
+        );
+      }
+
       const signOptions: SignOptions = {
         expiresIn: env.jwt.expiresIn,
       };
+
       const token = jwt.sign(
         { id: user.id, email: user.email },
         env.jwt.secret,
         signOptions
       );
+
       return {
         token,
         user: {
@@ -43,6 +66,9 @@ export class AuthService {
         },
       };
     } catch (error: unknown) {
+      if (error instanceof AuthError) {
+        throw error;
+      }
       const message = error instanceof Error ? error.message : String(error);
       if (message.includes("INVALID_CREDENTIALS")) {
         throw new AuthError(
