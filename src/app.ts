@@ -8,6 +8,7 @@ import authRoutes from "./modules/auth/auth.routes";
 import rideRoutes from "./modules/rides/ride.routes";
 
 import { authMiddleware } from "./core/middleware/authMiddleware";
+import { createCommentController,getAllCommentsController } from './modules/comments/controllers/comments.controller';
 
 const app = express();
 app.use(cors());
@@ -20,6 +21,9 @@ app.use("/api/stations", stationRoutes);
 
 app.use("/api/reservations", authMiddleware, reservationRoutes);
 app.use("/api/rides", authMiddleware, rideRoutes);
+
+app.post('/api/comments/postComment', createCommentController);
+app.get('/api/comments/userComments', getAllCommentsController);
 
 app.get("/health", (_, res) =>
   res.json({ status: "OK", message: "EcoRide backend running" })
