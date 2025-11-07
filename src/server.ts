@@ -8,8 +8,13 @@ const PORT = process.env.PORT || 3000;
 
 async function startServer() {
   try {
-    // Conectamos MongoDB una sola vez antes de levantar el servidor
-    await connectMongo();
+    // Optionally skip Mongo connection in local dev (set SKIP_MONGO=true)
+    if (process.env.SKIP_MONGO !== 'true') {
+      // Conectamos MongoDB una sola vez antes de levantar el servidor
+      await connectMongo();
+    } else {
+      console.log('⚠️ SKIP_MONGO=true -> arrancando sin conexión a MongoDB (temporal)');
+    }
 
     app.listen(PORT, () => 
       console.log(`🚀 EcoRide API listening on port ${PORT}`)

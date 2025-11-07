@@ -9,6 +9,8 @@ import rideRoutes from "./modules/rides/ride.routes";
 
 import { authMiddleware } from "./core/middleware/authMiddleware";
 import { createCommentController,getAllCommentsController } from './modules/comments/controllers/comments.controller';
+import paymentRoutes from "./modules/payments/routes/payment-method.routes";
+import { paymentWebhookController } from './modules/payments/controllers/payment-webhook.controller';
 
 const app = express();
 app.use(cors());
@@ -19,8 +21,14 @@ app.post("/api/users/register", registerUserController);
 
 app.use("/api/stations", stationRoutes);
 
+
+// Public webhook endpoint must receive raw body (stripe signatures). Mount before json middleware would parse it,
+// but we have express.json globally — we use express.raw on the route itself.
+app.post('/api/pagos/webhook', express.raw({ type: 'application/json' }), paymentWebhookController);
+
 app.use("/api/reservations", authMiddleware, reservationRoutes);
 app.use("/api/rides", authMiddleware, rideRoutes);
+app.use("/api/pagos", authMiddleware, paymentRoutes);
 
 app.post('/api/comments/postComment', createCommentController);
 app.get('/api/comments/userComments', getAllCommentsController);
