@@ -9,6 +9,7 @@ import rideRoutes from "./modules/rides/ride.routes";
 
 import { authMiddleware } from "./core/middleware/authMiddleware";
 import { createCommentController,getAllCommentsController } from './modules/comments/controllers/comments.controller';
+import { activateUserController } from "./modules/users/controllers/activate.user.controller";
 
 const app = express();
 app.use(cors());
@@ -16,6 +17,9 @@ app.use(express.json());
 
 app.use("/api/auth", authRoutes);
 app.post("/api/users/register", registerUserController);
+app.get("/api/users/activate/:token", activateUserController);
+
+
 
 app.use("/api/stations", stationRoutes);
 
