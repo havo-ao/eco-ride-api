@@ -2,6 +2,52 @@ import { Request, Response } from 'express';
 import { db } from '../../../core/database/mysql';
 import crypto from 'crypto';
 
+/**
+ * @swagger
+ * /api/auth/activate/{token}:
+ *   get:
+ *     summary: Activa la cuenta de un usuario.
+ *     description: Verifica el token de activación recibido por correo y activa la cuenta del usuario si el token es válido.
+ *     tags: [Auth]
+ *     parameters:
+ *       - in: path
+ *         name: token
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Token de activación enviado al correo del usuario.
+ *     responses:
+ *       200:
+ *         description: Cuenta activada exitosamente o ya estaba activa.
+ *         content:
+ *           application/json:
+ *             example:
+ *               message: "Cuenta activada exitosamente."
+ *               code: "ACTIVATED"
+ *       400:
+ *         description: Token inválido o expirado.
+ *         content:
+ *           application/json:
+ *             examples:
+ *               invalid:
+ *                 summary: Token inválido
+ *                 value:
+ *                   message: "Token inválido."
+ *                   code: "INVALID_TOKEN"
+ *               expired:
+ *                 summary: Token expirado
+ *                 value:
+ *                   message: "El enlace de activación ha expirado."
+ *                   code: "TOKEN_EXPIRED"
+ *       500:
+ *         description: Error interno del servidor.
+ *         content:
+ *           application/json:
+ *             example:
+ *               message: "Error interno del servidor."
+ *               code: "SERVER_ERROR"
+ */
+
 export async function activateUserController(req: Request, res: Response) {
   const rawToken = req.params.token;
   const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');

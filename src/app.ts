@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import { swaggerDocs } from "./swagger/swagger";
 
 import { registerUserController } from "./modules/users/controllers/register.controller";
 import reservationRoutes from "./modules/reservations/reservation.routes";
@@ -14,6 +15,8 @@ import { activateUserController } from "./modules/users/controllers/activate.use
 const app = express();
 app.use(cors());
 app.use(express.json());
+// Inicializa Swagger
+swaggerDocs(app);
 
 app.use("/api/auth", authRoutes);
 app.post("/api/users/register", registerUserController);
