@@ -1,6 +1,9 @@
 import { Request, Response } from "express";
 import Stripe from "stripe";
 import { PaymentMethodRepository } from "../repositories/payment-method.repository";
+import { childLogger } from '@/core/logger/logger';
+
+const logger = childLogger('payments-webhook-controller');
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {} as Stripe.StripeConfig);
 
@@ -28,10 +31,10 @@ export async function paymentWebhookController(req: Request, res: Response) {
         } else {
           throw new Error('Unsupported payload type');
         }
-        event = parsed as Stripe.Event;
-        console.warn('Webhook verification bypassed via header (tests only).');
+  event = parsed as Stripe.Event;
+  logger.warn({ message: 'Webhook verification bypassed via header (tests only).' });
       } catch (err) {
-        console.error('Invalid webhook payload (bypass):', (err as Error).message);
+  logger.error({ message: 'Invalid webhook payload (bypass)', error: (err as Error).message, stack: (err as Error).stack });
         return res.status(400).send('Invalid payload');
       }
     } else {
@@ -41,7 +44,7 @@ export async function paymentWebhookController(req: Request, res: Response) {
       try {
         event = stripe.webhooks.constructEvent(rawBody as Buffer, sig, process.env.STRIPE_WEBHOOK_SECRET);
       } catch (err) {
-        console.error('Webhook signature verification failed:', (err as Error).message);
+  logger.error({ message: 'Webhook signature verification failed', error: (err as Error).message, stack: (err as Error).stack });
         return res.status(400).send('Webhook signature verification failed');
       }
     }
@@ -61,7 +64,7 @@ export async function paymentWebhookController(req: Request, res: Response) {
       }
       event = parsed as Stripe.Event;
     } catch (err) {
-      console.error('Invalid webhook payload', (err as Error).message);
+  logger.error({ message: 'Invalid webhook payload', error: (err as Error).message, stack: (err as Error).stack });
       return res.status(400).send('Invalid payload');
     }
   }
@@ -82,7 +85,7 @@ export async function paymentWebhookController(req: Request, res: Response) {
           try {
             await PaymentMethodRepository.updateFromStripe(pm as any);
           } catch (err) {
-            console.error('Failed updating payment_method from Stripe:', (err as Error).message);
+            logger.error({ message: 'Failed updating payment_method from Stripe', error: (err as Error).message, stack: (err as Error).stack });
           }
         }
         break;
@@ -94,7 +97,7 @@ export async function paymentWebhookController(req: Request, res: Response) {
 
     return res.json({ received: true });
   } catch (err) {
-    console.error('Webhook handling error', (err as Error).message);
+    logger.error({ message: 'Webhook handling error', error: (err as Error).message, stack: (err as Error).stack });
     return res.status(500).send('Webhook handling error');
   }
 }

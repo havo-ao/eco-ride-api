@@ -1,5 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import { ReservationService, ReservationError } from "./reservation.service";
+import { childLogger } from '@/core/logger/logger';
+
+const logger = childLogger('reservations-controller');
 
 interface AuthUser {
   id: number;
@@ -18,9 +21,9 @@ export class ReservationController {
       if (!userId) {
         return res.status(401).json({ message: "No autenticado" });
       }
-      const result = await service.getActive(userId);
-      console.log("Reserva Activa: ", result);
-      return res.json(result);
+  const result = await service.getActive(userId);
+  logger.info({ message: 'Reserva Activa', result, userId });
+  return res.json(result);
     } catch (error) {
       return next(error);
     }

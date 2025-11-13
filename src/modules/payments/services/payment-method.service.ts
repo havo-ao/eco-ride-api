@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import logger from '@/core/logger/logger';
 import { CreatePaymentMethodDto } from "../dtos/create-payment-method.dto";
 import { PaymentMethodRepository } from "../repositories/payment-method.repository";
 import { getUserById, setStripeCustomerId } from "../../users/repositories/users.repo";
@@ -45,14 +46,14 @@ export class PaymentMethodService {
             await stripe.paymentMethods.attach(dto.stripePaymentMethodId as string, { customer: stripeCustomerId });
           } catch (attachErr) {
             // If attach fails, consider this an internal error (do not register the PM)
-            console.error('Failed to attach PaymentMethod to customer', (attachErr as Error).message);
+            logger.error({ module: 'payments-service', message: 'Failed to attach PaymentMethod to customer', error: (attachErr as Error).message });
             return { success: false, message: 'ERROR_INTERNAL' };
           }
         }
       } catch (err) {
         // Si Stripe lanza error, consideramos la tarjeta inválida
         isValid = false;
-        console.error('Error retrieving Stripe paymentMethod:', dto.stripePaymentMethodId, (err as Error).message);
+        logger.warn({ module: 'payments-service', message: 'Error retrieving Stripe paymentMethod', paymentMethodId: dto.stripePaymentMethodId, error: (err as Error).message });
       }
     }
 
@@ -134,12 +135,12 @@ export class PaymentMethodService {
 
     // If attached to Stripe, attempt to detach first
     if (row.stripePaymentMethodId) {
-      try {
-        await stripe.paymentMethods.detach(row.stripePaymentMethodId as string);
-      } catch (err) {
-        // Log the error but still attempt to revoke in DB
-        console.error('Error detaching payment method from Stripe', (err as Error).message);
-      }
+          try {
+            await stripe.paymentMethods.detach(row.stripePaymentMethodId as string);
+          } catch (err) {
+            // Log the error but still attempt to revoke in DB
+            logger.error({ module: 'payments-service', message: 'Error detaching payment method from Stripe', error: (err as Error).message });
+          }
     }
 
     const repoRes = await PaymentMethodRepository.revokeById(userId, paymentMethodId);

@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
+import logger from '@/core/logger/logger';
 
 dotenv.config();
 
@@ -9,13 +10,18 @@ let isConnected = false;
 
 export async function connectMongo() {
   if (!isConnected) {
-    await mongoose.connect(mongoUri, {
-      maxPoolSize: 10,
-      serverSelectionTimeoutMS: 10000,
-    });
+    try {
+      await mongoose.connect(mongoUri, {
+        maxPoolSize: 10,
+        serverSelectionTimeoutMS: 10000,
+      });
 
-    isConnected = true;
-    console.log('✅ Conectado a MongoDB');
+      isConnected = true;
+      logger.info({ module: 'mongodb', message: 'Conectado a MongoDB' });
+    } catch (error) {
+      logger.error({ module: 'mongodb', message: 'Error conectando a MongoDB', error: (error as Error).message, stack: (error as Error).stack });
+      throw error;
+    }
   }
   return mongoose.connection;
 }
