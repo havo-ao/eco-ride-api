@@ -15,6 +15,7 @@ import { createCommentController,getAllCommentsController } from './modules/comm
 import paymentRoutes from "./modules/payments/routes/payment-method.routes";
 import { paymentWebhookController } from './modules/payments/controllers/payment-webhook.controller';
 import { activateUserController } from "./modules/users/controllers/activate.user.controller";
+import loyaltyRoutes from "./modules/loyalty/loyalty.routes";
 
 const app = express();
 app.use(cors());
@@ -48,6 +49,8 @@ app.use("/api/rides", authMiddleware, rideRoutes);
 // Mount payments routes under English path and keep Spanish alias for backward compatibility
 app.use("/api/payments", authMiddleware, paymentRoutes);
 app.use("/api/pagos", authMiddleware, paymentRoutes);
+app.use("/api/loyalty", loyaltyRoutes);
+
 
 app.post('/api/comments/postComment', createCommentController);
 app.get('/api/comments/userComments', getAllCommentsController);

@@ -1,4 +1,6 @@
 import { RideRepository, RideRow } from "./ride.repository";
+import { loyaltyService } from "../loyalty/loyalty.service";
+
 
 export type RideStatus = "Active" | "Completed";
 
@@ -67,6 +69,11 @@ export class RideService {
       input.rideId,
       input.destinationStationId
     );
+    await loyaltyService.addPoints(
+    userId,
+    10, // cantidad de puntos por viaje
+    "Puntos por viaje completado"
+  );
     return this.mapRowToRecord(row);
   }
 }

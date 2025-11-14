@@ -29,6 +29,7 @@ security: [{ bearerAuth: [] }], //aplica ese esquema por defecto a todos los end
   { name: "Reservations", description: "Creación, consulta y cancelación de reservas" },
   { name: "Rides", description: "Operaciones relacionadas con los viajes" },
   { name: "Comments", description: "Comentarios de usuarios" },
+    { name: "Loyalty", description: "Programa de fidelización y puntos" }
 ],
 
     servers: [
