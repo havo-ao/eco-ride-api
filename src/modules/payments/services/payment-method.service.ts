@@ -17,60 +17,71 @@ export class PaymentMethodService {
       }
     }
 
-    // Validación con Stripe: para tarjetas intentamos recuperar el PaymentMethod
+    // Validación y lógica con Stripe
     let isValid = true;
 
     if (dto.type === "CARD") {
       try {
         const pm = await stripe.paymentMethods.retrieve(dto.stripePaymentMethodId as string);
-        // Si no tiene datos de tarjeta, marcar como inválido
         if (!pm || (pm as any).card == null) {
           isValid = false;
         }
-        // If payment method is valid, ensure it's attached to a Stripe Customer for this user
+
         if (isValid) {
-          // fetch user to check stripe_customer_id
           const user = await getUserById(userId);
           let stripeCustomerId = user?.stripe_customer_id ?? null;
 
           if (!stripeCustomerId) {
-            // create customer in Stripe and save to DB
             const customer = await stripe.customers.create({ metadata: { userId: String(userId) } });
             stripeCustomerId = customer.id;
             await setStripeCustomerId(userId, stripeCustomerId);
           }
 
-          // attach payment method to customer (idempotent if already attached)
           try {
             await stripe.paymentMethods.attach(dto.stripePaymentMethodId as string, { customer: stripeCustomerId });
           } catch (attachErr) {
-            // If attach fails, consider this an internal error (do not register the PM)
             console.error('Failed to attach PaymentMethod to customer', (attachErr as Error).message);
             return { success: false, message: 'ERROR_INTERNAL' };
           }
         }
       } catch (err) {
-        // Si Stripe lanza error, consideramos la tarjeta inválida
         isValid = false;
         console.error('Error retrieving Stripe paymentMethod:', dto.stripePaymentMethodId, (err as Error).message);
       }
     }
 
     try {
-      const repoRes = await PaymentMethodRepository.registerPaymentMethod(userId, dto, isValid, !!dto.setAsDefault);
-
-      if (repoRes.resultCode === 0) {
-        return { success: true, message: repoRes.resultMessage };
+      // Business logic now lives in service: check duplicates, manage default flag, persist via repository
+      if (dto.type === 'CARD' && dto.stripePaymentMethodId) {
+        const existing = await PaymentMethodRepository.findByStripePaymentMethodId(userId, dto.stripePaymentMethodId);
+        if (existing) {
+          return { success: false, message: 'ALREADY_EXISTS' };
+        }
       }
 
-      // Mapeo simple de códigos conocidos
-      if (repoRes.resultCode === 2) {
-        return { success: false, message: repoRes.resultMessage };
+      const status = isValid ? 'VALID' : 'REJECTED';
+      const isDefault = !!dto.setAsDefault && isValid;
+
+      if (isDefault) {
+        await PaymentMethodRepository.clearDefaultForUser(userId);
       }
 
-      return { success: false, message: repoRes.resultMessage };
+      await PaymentMethodRepository.createPaymentMethod({
+        userId,
+        type: dto.type,
+        stripePaymentMethodId: dto.stripePaymentMethodId ?? null,
+        brand: dto.brand ?? null,
+        last4: dto.last4 ?? null,
+        expMonth: dto.expMonth ?? null,
+        expYear: dto.expYear ?? null,
+        status: status as 'PENDING' | 'VALID' | 'REJECTED',
+        isDefault,
+      });
+
+      return { success: true, message: 'OK' };
     } catch (error) {
-      return { success: false, message: "ERROR_INTERNAL" };
+      console.error('createPaymentMethod error:', (error as Error).message);
+      return { success: false, message: 'ERROR_INTERNAL' };
     }
   }
 

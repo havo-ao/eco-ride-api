@@ -23,46 +23,100 @@ export class PaymentMethodRepository {
           [userId, dto.stripePaymentMethodId]
         );
         if ((existing as any[]).length > 0) {
-          const existingId = (existing as any[])[0].id;
-          // If client requested setAsDefault, call the SP to flip default flags
-          if (setAsDefault) {
-            try {
-              await conn.query("CALL sp_set_default_payment_method(?, ?, @o_result_code, @o_result_message)", [userId, existingId]);
-              // ignore SP result here — caller will receive OK_ALREADY_EXISTS
-            } catch (e) {
-              // ignore
-            }
-          }
-
-          return { resultCode: 0, resultMessage: 'OK_ALREADY_EXISTS' };
+          return { resultCode: 2, resultMessage: 'ALREADY_EXISTS' };
         }
       }
-      const callSql =
-        "CALL sp_register_payment_method(?,?,?,?,?,?,?,?,?, @o_result_code, @o_result_message)";
 
-      await conn.query(callSql, [
-        userId,
-        dto.type,
-        dto.stripePaymentMethodId ?? null,
-        dto.brand ?? null,
-        dto.last4 ?? null,
-        dto.expMonth ?? null,
-        dto.expYear ?? null,
-        isValid ? 1 : 0,
-        setAsDefault ? 1 : 0,
-      ]);
+      // Insert new payment method using SQL (no stored procedures)
+      const status = isValid ? 'VALID' : 'REJECTED';
+      const isDefaultFlag = setAsDefault && isValid ? 1 : 0;
 
-      
+      try {
+        await conn.beginTransaction();
 
-      const [selectRows] = await conn.query("SELECT @o_result_code AS resultCode, @o_result_message AS resultMessage");
+        if (isDefaultFlag) {
+          await conn.query("UPDATE payment_methods SET is_default = 0 WHERE user_id = ?", [userId]);
+        }
 
-      const firstRow = (selectRows as RowDataPacket[])[0] as { resultCode: number; resultMessage: string } | undefined;
+        const [insertRes] = await conn.query(
+          `INSERT INTO payment_methods (user_id, type, stripe_payment_method_id, brand, last4, exp_month, exp_year, status, is_default, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+          [
+            userId,
+            dto.type,
+            dto.stripePaymentMethodId ?? null,
+            dto.brand ?? null,
+            dto.last4 ?? null,
+            dto.expMonth ?? null,
+            dto.expYear ?? null,
+            status,
+            isDefaultFlag,
+          ]
+        );
 
-      if (!firstRow) {
-        return { resultCode: -1, resultMessage: "NO_RESPONSE" };
+        await conn.commit();
+        return { resultCode: 0, resultMessage: 'OK' };
+      } catch (err) {
+        await conn.rollback();
+        console.error('registerPaymentMethod error:', (err as Error).message);
+        return { resultCode: -1, resultMessage: 'ERROR_INTERNAL' };
       }
+    } finally {
+      conn.release();
+    }
+  }
 
-      return { resultCode: Number(firstRow.resultCode), resultMessage: String(firstRow.resultMessage) };
+  // Lower-level helper: find by stripe id for a user
+  public static async findByStripePaymentMethodId(userId: number, stripePaymentMethodId: string) {
+    const [rows] = await db.query(
+      `SELECT id, user_id, type, stripe_payment_method_id AS stripePaymentMethodId, brand, last4, exp_month AS expMonth, exp_year AS expYear, status, is_default AS isDefault, created_at AS createdAt
+       FROM payment_methods WHERE user_id = ? AND stripe_payment_method_id = ? LIMIT 1`,
+      [userId, stripePaymentMethodId]
+    );
+    const first = (rows as RowDataPacket[])[0] as RowDataPacket | undefined;
+    return first || null;
+  }
+
+  public static async clearDefaultForUser(userId: number) {
+    await db.query("UPDATE payment_methods SET is_default = 0 WHERE user_id = ?", [userId]);
+  }
+
+  public static async createPaymentMethod(params: {
+    userId: number;
+    type: 'CARD' | 'WALLET';
+    stripePaymentMethodId?: string | null;
+    brand?: string | null;
+    last4?: string | null;
+    expMonth?: number | null;
+    expYear?: number | null;
+    status: 'PENDING' | 'VALID' | 'REJECTED';
+    isDefault: boolean;
+  }) {
+    const conn = await db.getConnection();
+    try {
+      const [insertRes] = await conn.query(
+        `INSERT INTO payment_methods (user_id, type, stripe_payment_method_id, brand, last4, exp_month, exp_year, status, is_default, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        [
+          params.userId,
+          params.type,
+          params.stripePaymentMethodId ?? null,
+          params.brand ?? null,
+          params.last4 ?? null,
+          params.expMonth ?? null,
+          params.expYear ?? null,
+          params.status,
+          params.isDefault ? 1 : 0,
+        ]
+      );
+
+      const insertId = (insertRes as any).insertId;
+      const [rows] = await db.query(
+        `SELECT id, user_id, type, stripe_payment_method_id AS stripePaymentMethodId, brand, last4, exp_month AS expMonth, exp_year AS expYear, status, is_default AS isDefault, created_at AS createdAt
+         FROM payment_methods WHERE id = ? LIMIT 1`,
+        [insertId]
+      );
+      return (rows as RowDataPacket[])[0] as RowDataPacket | null;
     } finally {
       conn.release();
     }
@@ -93,12 +147,52 @@ export class PaymentMethodRepository {
   public static async setAsDefault(userId: number, paymentMethodId: number) {
     const conn = await db.getConnection();
     try {
-      const callSql = "CALL sp_set_default_payment_method(?, ?, @o_result_code, @o_result_message)";
-      await conn.query(callSql, [userId, paymentMethodId]);
-      const [selectRows] = await conn.query("SELECT @o_result_code AS resultCode, @o_result_message AS resultMessage");
-      const firstRow = (selectRows as RowDataPacket[])[0] as { resultCode: number; resultMessage: string } | undefined;
-      if (!firstRow) return { resultCode: -1, resultMessage: 'NO_RESPONSE' };
-      return { resultCode: Number(firstRow.resultCode), resultMessage: String(firstRow.resultMessage) };
+      // Check existence
+      const [rows] = await conn.query(`SELECT id, user_id FROM payment_methods WHERE id = ? LIMIT 1`, [paymentMethodId]);
+      const row = (rows as RowDataPacket[])[0] as RowDataPacket | undefined;
+      if (!row) return { resultCode: 2, resultMessage: 'NOT_FOUND' };
+      if (Number(row.user_id) !== Number(userId)) return { resultCode: 2, resultMessage: 'NOT_OWNED' };
+
+      try {
+        await conn.beginTransaction();
+        await conn.query("UPDATE payment_methods SET is_default = 0 WHERE user_id = ?", [userId]);
+        const [res] = await conn.query("UPDATE payment_methods SET is_default = 1 WHERE id = ? AND user_id = ?", [paymentMethodId, userId]);
+        await conn.commit();
+        const affectedRows = (res as any).affectedRows ?? (res as any)[0]?.affectedRows ?? 0;
+        if (affectedRows === 0) return { resultCode: 2, resultMessage: 'NOT_OWNED' };
+        return { resultCode: 0, resultMessage: 'OK' };
+      } catch (err) {
+        await conn.rollback();
+        console.error('setAsDefault error:', (err as Error).message);
+        return { resultCode: -1, resultMessage: 'ERROR_INTERNAL' };
+      }
+    } finally {
+      conn.release();
+    }
+  }
+
+  // New simpler setDefault helper returning string codes
+  public static async setDefault(userId: number, paymentMethodId: number): Promise<'OK' | 'NOT_OWNED' | 'NOT_FOUND' | 'ERROR'> {
+    const conn = await db.getConnection();
+    try {
+      const [rows] = await conn.query(`SELECT id, user_id FROM payment_methods WHERE id = ? LIMIT 1`, [paymentMethodId]);
+      const row = (rows as RowDataPacket[])[0] as RowDataPacket | undefined;
+      if (!row) return 'NOT_FOUND';
+      if (Number(row.user_id) !== Number(userId)) return 'NOT_OWNED';
+
+      try {
+        await conn.beginTransaction();
+        await conn.query("UPDATE payment_methods SET is_default = 0 WHERE user_id = ?", [userId]);
+        const [res] = await conn.query("UPDATE payment_methods SET is_default = 1 WHERE id = ? AND user_id = ?", [paymentMethodId, userId]);
+        await conn.commit();
+        const affectedRows = (res as any).affectedRows ?? (res as any)[0]?.affectedRows ?? 0;
+        if (affectedRows === 0) return 'NOT_OWNED';
+        return 'OK';
+      } catch (err) {
+        await conn.rollback();
+        console.error('setDefault error:', (err as Error).message);
+        return 'ERROR';
+      }
     } finally {
       conn.release();
     }
@@ -107,12 +201,29 @@ export class PaymentMethodRepository {
   public static async revokeById(userId: number, paymentMethodId: number) {
     const conn = await db.getConnection();
     try {
-      const callSql = "CALL sp_revoke_payment_method(?, ?, @o_result_code, @o_result_message)";
-      await conn.query(callSql, [userId, paymentMethodId]);
-      const [selectRows] = await conn.query("SELECT @o_result_code AS resultCode, @o_result_message AS resultMessage");
-      const firstRow = (selectRows as RowDataPacket[])[0] as { resultCode: number; resultMessage: string } | undefined;
-      if (!firstRow) return { resultCode: -1, resultMessage: 'NO_RESPONSE' };
-      return { resultCode: Number(firstRow.resultCode), resultMessage: String(firstRow.resultMessage) };
+      const [rows] = await conn.query(`SELECT id, user_id FROM payment_methods WHERE id = ? LIMIT 1`, [paymentMethodId]);
+      const row = (rows as RowDataPacket[])[0] as RowDataPacket | undefined;
+      if (!row) return { resultCode: 2, resultMessage: 'NOT_FOUND' };
+      if (Number(row.user_id) !== Number(userId)) return { resultCode: 2, resultMessage: 'NOT_OWNED' };
+
+      const [res] = await conn.query(`UPDATE payment_methods SET status = 'REVOKED', is_default = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [paymentMethodId]);
+      return { resultCode: 0, resultMessage: 'OK' };
+    } finally {
+      conn.release();
+    }
+  }
+
+  // Delete/revoke by id and user with simple return codes
+  public static async deleteByIdAndUser(id: number, userId: number): Promise<'OK' | 'NOT_OWNED' | 'NOT_FOUND'> {
+    const conn = await db.getConnection();
+    try {
+      const [rows] = await conn.query(`SELECT id, user_id FROM payment_methods WHERE id = ? LIMIT 1`, [id]);
+      const row = (rows as RowDataPacket[])[0] as RowDataPacket | undefined;
+      if (!row) return 'NOT_FOUND';
+      if (Number(row.user_id) !== Number(userId)) return 'NOT_OWNED';
+
+      await conn.query(`UPDATE payment_methods SET status = 'REVOKED', is_default = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [id]);
+      return 'OK';
     } finally {
       conn.release();
     }
@@ -121,12 +232,8 @@ export class PaymentMethodRepository {
   public static async revokeByStripeId(stripePaymentMethodId: string) {
     const conn = await db.getConnection();
     try {
-      const callSql = "CALL sp_revoke_payment_method_by_stripe_id(?, @o_result_code, @o_result_message)";
-      await conn.query(callSql, [stripePaymentMethodId]);
-      const [selectRows] = await conn.query("SELECT @o_result_code AS resultCode, @o_result_message AS resultMessage");
-      const firstRow = (selectRows as RowDataPacket[])[0] as { resultCode: number; resultMessage: string } | undefined;
-      if (!firstRow) return { resultCode: -1, resultMessage: 'NO_RESPONSE' };
-      return { resultCode: Number(firstRow.resultCode), resultMessage: String(firstRow.resultMessage) };
+      const [res] = await conn.query(`UPDATE payment_methods SET status = 'REVOKED', is_default = 0, updated_at = CURRENT_TIMESTAMP WHERE stripe_payment_method_id = ?`, [stripePaymentMethodId]);
+      return { resultCode: 0, resultMessage: 'OK' };
     } finally {
       conn.release();
     }
