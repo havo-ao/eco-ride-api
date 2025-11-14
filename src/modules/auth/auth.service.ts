@@ -26,58 +26,45 @@ export class AuthService {
   private readonly repository = new AuthRepository();
 
   async login(email: string, password: string): Promise<LoginResult> {
-    try {
-      const user: LoginUserRecord | null = await this.repository.findByEmail(
-        email
-      );
+  try {
+    const user: LoginUserRecord | null = await this.repository.findByEmail(email);
 
-      if (!user) {
-        throw new AuthError(
-          401,
-          "INVALID_CREDENTIALS",
-          "Credenciales inválidas"
-        );
-      }
+    if (!user) {
+      throw new AuthError(401, "INVALID_CREDENTIALS", "Credenciales inválidas");
+    }
 
-      const isValid = await bcrypt.compare(password, user.passwordHash);
-      if (!isValid) {
-        throw new AuthError(
-          401,
-          "INVALID_CREDENTIALS",
-          "Credenciales inválidas"
-        );
-      }
+    // ✅ Verificar si la cuenta está activa
+    if (!user.isActive) {
+      throw new AuthError(403, "ACCOUNT_NOT_ACTIVE", "Cuenta no activada. Revisa tu correo.");
+    }
 
-      const signOptions: SignOptions = {
-        expiresIn: env.jwt.expiresIn,
-      };
+    const isValid = await bcrypt.compare(password, user.passwordHash);
+    if (!isValid) {
+      throw new AuthError(401, "INVALID_CREDENTIALS", "Credenciales inválidas");
+    }
 
-      const token = jwt.sign(
-        { id: user.id, email: user.email },
-        env.jwt.secret,
-        signOptions
-      );
+    const signOptions: SignOptions = {
+      expiresIn: env.jwt.expiresIn,
+    };
 
-      return {
-        token,
-        user: {
-          id: user.id,
-          email: user.email,
-        },
-      };
-    } catch (error: unknown) {
-      if (error instanceof AuthError) {
-        throw error;
-      }
-      const message = error instanceof Error ? error.message : String(error);
-      if (message.includes("INVALID_CREDENTIALS")) {
-        throw new AuthError(
-          401,
-          "INVALID_CREDENTIALS",
-          "Credenciales inválidas"
-        );
-      }
+    const token = jwt.sign(
+      { id: user.id, email: user.email },
+      env.jwt.secret,
+      signOptions
+    );
+
+    return {
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+      },
+    };
+  } catch (error: unknown) {
+    if (error instanceof AuthError) {
       throw error;
     }
+    throw error;
   }
+}
 }

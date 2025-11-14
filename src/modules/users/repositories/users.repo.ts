@@ -9,12 +9,28 @@ type RegisterResult = RowDataPacket & {
   userId: number | null;
 };
 
+function formatDateToMySQL(date: Date): string {
+  return date.toISOString().slice(0, 19).replace('T', ' ');
+}
+
 export async function registerUser(dto: RegisterUserDTO) {
   const passwordHash = await bcrypt.hash(dto.password, 10);
 
+  // Support optional hashedToken and tokenExpiration passed in the DTO
+  // If tokenExpiration is a Date or string, normalize to MySQL DATETIME string
+  const hashedTokenParam = dto.hashedToken ?? null;
+  let tokenExpirationParam: string | null = null;
+  if (dto.tokenExpiration) {
+    if (typeof dto.tokenExpiration === 'string') {
+      tokenExpirationParam = dto.tokenExpiration;
+    } else {
+      tokenExpirationParam = formatDateToMySQL(new Date(dto.tokenExpiration));
+    }
+  }
+
   await db.query(
-    "CALL sp_register_user(?, ?, ?, ?, @status, @message, @user_id)",
-    [dto.email, passwordHash, dto.firstName, dto.lastName]
+    "CALL sp_register_user(?, ?, ?, ?, ?, ?, @status, @message, @user_id)",
+    [dto.email, passwordHash, dto.firstName, dto.lastName, hashedTokenParam, tokenExpirationParam]
   );
 
   const [rows] = await db.query<RegisterResult[]>(
@@ -66,7 +82,7 @@ export async function setStripeCustomerId(userId: number, stripeCustomerId: stri
   try {
     const [res2]: any = await db.query("UPDATE `user` SET stripe_customer_id = ? WHERE id = ?", [stripeCustomerId, userId]);
     if (res2 && res2.affectedRows > 0) return true;
-    } catch (err: any) {
+  } catch (err: any) {
     if (err && err.code === "ER_NO_SUCH_TABLE") {
       return false;
     }
@@ -76,3 +92,4 @@ export async function setStripeCustomerId(userId: number, stripeCustomerId: stri
   // If neither update affected rows, return false so caller can act accordingly
   return false;
 }
+

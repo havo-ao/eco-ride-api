@@ -3,19 +3,18 @@ import { createPaymentMethodController, listPaymentMethodsController, getPayment
 
 const router = Router();
 
-// GET /api/pagos/metodo
-router.get("/metodo", listPaymentMethodsController);
+// English endpoints (preferred)
+router.get('/method', listPaymentMethodsController); // GET /api/payments/method
+router.get('/method/:id', getPaymentMethodController); // GET /api/payments/method/:id
+router.post('/method', createPaymentMethodController); // POST /api/payments/method
+router.put('/method/:id/default', setDefaultPaymentMethodController); // PUT /api/payments/method/:id/default
+router.delete('/method/:id', deletePaymentMethodController); // DELETE /api/payments/method/:id
 
-// GET /api/pagos/metodo/:id
+// Spanish aliases (deprecated) kept for backward compatibility
+router.get('/metodo', listPaymentMethodsController);
 router.get('/metodo/:id', getPaymentMethodController);
-
-// POST /api/pagos/metodo
-router.post("/metodo", createPaymentMethodController);
-
-// PATCH set as default
+router.post('/metodo', createPaymentMethodController);
 router.patch('/metodo/:id', setDefaultPaymentMethodController);
-
-// DELETE /api/pagos/metodo/:id
 router.delete('/metodo/:id', deletePaymentMethodController);
 
 export default router;

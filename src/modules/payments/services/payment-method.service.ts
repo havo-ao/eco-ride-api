@@ -18,60 +18,71 @@ export class PaymentMethodService {
       }
     }
 
-    // Validación con Stripe: para tarjetas intentamos recuperar el PaymentMethod
+    // Validación y lógica con Stripe
     let isValid = true;
 
     if (dto.type === "CARD") {
       try {
         const pm = await stripe.paymentMethods.retrieve(dto.stripePaymentMethodId as string);
-        // Si no tiene datos de tarjeta, marcar como inválido
         if (!pm || (pm as any).card == null) {
           isValid = false;
         }
-        // If payment method is valid, ensure it's attached to a Stripe Customer for this user
+
         if (isValid) {
-          // fetch user to check stripe_customer_id
           const user = await getUserById(userId);
           let stripeCustomerId = user?.stripe_customer_id ?? null;
 
           if (!stripeCustomerId) {
-            // create customer in Stripe and save to DB
             const customer = await stripe.customers.create({ metadata: { userId: String(userId) } });
             stripeCustomerId = customer.id;
             await setStripeCustomerId(userId, stripeCustomerId);
           }
 
-          // attach payment method to customer (idempotent if already attached)
           try {
             await stripe.paymentMethods.attach(dto.stripePaymentMethodId as string, { customer: stripeCustomerId });
           } catch (attachErr) {
-            // If attach fails, consider this an internal error (do not register the PM)
-            logger.error({ module: 'payments-service', message: 'Failed to attach PaymentMethod to customer', error: (attachErr as Error).message });
+            console.error('Failed to attach PaymentMethod to customer', (attachErr as Error).message);
             return { success: false, message: 'ERROR_INTERNAL' };
           }
         }
       } catch (err) {
-        // Si Stripe lanza error, consideramos la tarjeta inválida
         isValid = false;
         logger.warn({ module: 'payments-service', message: 'Error retrieving Stripe paymentMethod', paymentMethodId: dto.stripePaymentMethodId, error: (err as Error).message });
       }
     }
 
     try {
-      const repoRes = await PaymentMethodRepository.registerPaymentMethod(userId, dto, isValid, !!dto.setAsDefault);
-
-      if (repoRes.resultCode === 0) {
-        return { success: true, message: repoRes.resultMessage };
+      // Business logic now lives in service: check duplicates, manage default flag, persist via repository
+      if (dto.type === 'CARD' && dto.stripePaymentMethodId) {
+        const existing = await PaymentMethodRepository.findByStripePaymentMethodId(userId, dto.stripePaymentMethodId);
+        if (existing) {
+          return { success: false, message: 'ALREADY_EXISTS' };
+        }
       }
 
-      // Mapeo simple de códigos conocidos
-      if (repoRes.resultCode === 2) {
-        return { success: false, message: repoRes.resultMessage };
+      const status = isValid ? 'VALID' : 'REJECTED';
+      const isDefault = !!dto.setAsDefault && isValid;
+
+      if (isDefault) {
+        await PaymentMethodRepository.clearDefaultForUser(userId);
       }
 
-      return { success: false, message: repoRes.resultMessage };
+      await PaymentMethodRepository.createPaymentMethod({
+        userId,
+        type: dto.type,
+        stripePaymentMethodId: dto.stripePaymentMethodId ?? null,
+        brand: dto.brand ?? null,
+        last4: dto.last4 ?? null,
+        expMonth: dto.expMonth ?? null,
+        expYear: dto.expYear ?? null,
+        status: status as 'PENDING' | 'VALID' | 'REJECTED',
+        isDefault,
+      });
+
+      return { success: true, message: 'OK' };
     } catch (error) {
-      return { success: false, message: "ERROR_INTERNAL" };
+      console.error('createPaymentMethod error:', (error as Error).message);
+      return { success: false, message: 'ERROR_INTERNAL' };
     }
   }
 
@@ -135,12 +146,28 @@ export class PaymentMethodService {
 
     // If attached to Stripe, attempt to detach first
     if (row.stripePaymentMethodId) {
+      try {
+        // Retrieve the payment method to check if it's attached to a customer
+        const pm = await stripe.paymentMethods.retrieve(row.stripePaymentMethodId as string);
+
+        // pm.customer can be null/undefined if not attached
+        const attachedToCustomer = (pm as any).customer ? true : false;
+
+        if (attachedToCustomer) {
           try {
             await stripe.paymentMethods.detach(row.stripePaymentMethodId as string);
-          } catch (err) {
-            // Log the error but still attempt to revoke in DB
-            logger.error({ module: 'payments-service', message: 'Error detaching payment method from Stripe', error: (err as Error).message });
+          } catch (detachErr) {
+            // Log but don't fail the overall revocation flow
+            console.error('Error detaching payment method from Stripe', (detachErr as Error).message);
           }
+        } else {
+          // Not attached — nothing to detach (avoid Stripe error)
+          console.info('PaymentMethod not attached to any customer in Stripe; skipping detach', row.stripePaymentMethodId);
+        }
+      } catch (err) {
+        // If retrieval fails, log and continue with DB revoke. We don't want this to block the revocation.
+        console.warn('Failed to retrieve PaymentMethod from Stripe; skipping detach. ID:', row.stripePaymentMethodId, 'error:', (err as Error).message);
+      }
     }
 
     const repoRes = await PaymentMethodRepository.revokeById(userId, paymentMethodId);

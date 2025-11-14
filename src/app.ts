@@ -2,8 +2,11 @@ import express from "express";
 import cors from "cors";
 import httpLogger from '@/core/logger/http-logger.middleware';
 import errorLogger from '@/core/logger/error-logger.middleware';
+import { swaggerDocs } from "./swagger/swagger";
 
 import { registerUserController } from "./modules/users/controllers/register.controller";
+import { userProfileController } from "./modules/users/controllers/user-profile.controller";
+import { debugUserRidesController } from "./modules/users/controllers/user-debug.controller";
 import reservationRoutes from "./modules/reservations/reservation.routes";
 import stationRoutes from "./modules/stations/station.routes";
 import authRoutes from "./modules/auth/auth.routes";
@@ -13,27 +16,46 @@ import { authMiddleware } from "./core/middleware/authMiddleware";
 import { createCommentController,getAllCommentsController } from './modules/comments/controllers/comments.controller';
 import paymentRoutes from "./modules/payments/routes/payment-method.routes";
 import { paymentWebhookController } from './modules/payments/controllers/payment-webhook.controller';
+import { activateUserController } from "./modules/users/controllers/activate.user.controller";
+import loyaltyRoutes from "./modules/loyalty/loyalty.routes";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+// Inicializa Swagger
+swaggerDocs(app);
 
 // HTTP logging middleware (assigns requestId, logs incoming requests)
 app.use(httpLogger);
 
 app.use("/api/auth", authRoutes);
 app.post("/api/users/register", registerUserController);
+app.get("/api/users/activate/:token", activateUserController);
+app.get("/api/users/profile", authMiddleware, userProfileController);
+
+// Development-only debug route to inspect raw rides for a user
+if (process.env.NODE_ENV === 'development') {
+  app.get('/internal/debug/user/:id/rides', debugUserRidesController);
+}
+
+
 
 app.use("/api/stations", stationRoutes);
 
 
 // Public webhook endpoint must receive raw body (stripe signatures). Mount before json middleware would parse it,
 // but we have express.json globally — we use express.raw on the route itself.
+// Webhook endpoints (both English and Spanish aliases)
+app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), paymentWebhookController);
 app.post('/api/pagos/webhook', express.raw({ type: 'application/json' }), paymentWebhookController);
 
 app.use("/api/reservations", authMiddleware, reservationRoutes);
 app.use("/api/rides", authMiddleware, rideRoutes);
+// Mount payments routes under English path and keep Spanish alias for backward compatibility
+app.use("/api/payments", authMiddleware, paymentRoutes);
 app.use("/api/pagos", authMiddleware, paymentRoutes);
+app.use("/api/loyalty", loyaltyRoutes);
+
 
 app.post('/api/comments/postComment', createCommentController);
 app.get('/api/comments/userComments', getAllCommentsController);
