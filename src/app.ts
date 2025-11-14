@@ -3,6 +3,8 @@ import cors from "cors";
 import { swaggerDocs } from "./swagger/swagger";
 
 import { registerUserController } from "./modules/users/controllers/register.controller";
+import { userProfileController } from "./modules/users/controllers/user-profile.controller";
+import { debugUserRidesController } from "./modules/users/controllers/user-debug.controller";
 import reservationRoutes from "./modules/reservations/reservation.routes";
 import stationRoutes from "./modules/stations/station.routes";
 import authRoutes from "./modules/auth/auth.routes";
@@ -23,6 +25,12 @@ swaggerDocs(app);
 app.use("/api/auth", authRoutes);
 app.post("/api/users/register", registerUserController);
 app.get("/api/users/activate/:token", activateUserController);
+app.get("/api/users/profile", authMiddleware, userProfileController);
+
+// Development-only debug route to inspect raw rides for a user
+if (process.env.NODE_ENV === 'development') {
+  app.get('/internal/debug/user/:id/rides', debugUserRidesController);
+}
 
 
 
