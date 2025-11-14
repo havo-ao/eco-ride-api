@@ -12,9 +12,15 @@ type RegisterResult = RowDataPacket & {
 export async function registerUser(dto: RegisterUserDTO) {
   const passwordHash = await bcrypt.hash(dto.password, 10);
 
+  // Support optional hashedToken and tokenExpiration passed in dto
+  // Call stored procedure with the additional parameters if provided
+  // We'll pass NULL for token params if not provided
+  const hashedTokenParam = dto.hashedToken ?? null;
+  const tokenExpirationParam = dto.tokenExpiration ? String(dto.tokenExpiration) : null;
+
   await db.query(
-    "CALL sp_register_user(?, ?, ?, ?, @status, @message, @user_id)",
-    [dto.email, passwordHash, dto.firstName, dto.lastName]
+    "CALL sp_register_user(?, ?, ?, ?, ?, ?, @status, @message, @user_id)",
+    [dto.email, passwordHash, dto.firstName, dto.lastName, hashedTokenParam, tokenExpirationParam]
   );
 
   const [rows] = await db.query<RegisterResult[]>(
