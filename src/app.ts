@@ -11,6 +11,7 @@ import rideRoutes from "./modules/rides/ride.routes";
 import { authMiddleware } from "./core/middleware/authMiddleware";
 import { createCommentController,getAllCommentsController } from './modules/comments/controllers/comments.controller';
 import { activateUserController } from "./modules/users/controllers/activate.user.controller";
+import loyaltyRoutes from "./modules/loyalty/loyalty.routes";
 
 const app = express();
 app.use(cors());
@@ -28,6 +29,8 @@ app.use("/api/stations", stationRoutes);
 
 app.use("/api/reservations", authMiddleware, reservationRoutes);
 app.use("/api/rides", authMiddleware, rideRoutes);
+app.use("/api/loyalty", loyaltyRoutes);
+
 
 app.post('/api/comments/postComment', createCommentController);
 app.get('/api/comments/userComments', getAllCommentsController);
