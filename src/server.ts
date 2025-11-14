@@ -8,12 +8,20 @@ const PORT = process.env.PORT || 3000;
 
 async function startServer() {
   try {
-    // Optionally skip Mongo connection in local dev (set SKIP_MONGO=true)
-    if (process.env.SKIP_MONGO !== 'true') {
+    // Detect SKIP_MONGO env var (PowerShell sets it via $env:SKIP_MONGO = 'true')
+    const skipMongo = (() => {
+      const v = process.env.SKIP_MONGO;
+      return !!v && (v === '1' || v.toLowerCase() === 'true');
+    })();
+
+    // Log the raw value for easier debugging when running via PowerShell
+    console.log(`SKIP_MONGO=${process.env.SKIP_MONGO ?? 'unset'}`);
+
+    if (!skipMongo) {
       // Conectamos MongoDB una sola vez antes de levantar el servidor
       await connectMongo();
     } else {
-      console.log('⚠️ SKIP_MONGO=true -> arrancando sin conexión a MongoDB (temporal)');
+      console.warn('⚠️ SKIP_MONGO is set — starting server without connecting to MongoDB');
     }
 
     app.listen(PORT, () => 

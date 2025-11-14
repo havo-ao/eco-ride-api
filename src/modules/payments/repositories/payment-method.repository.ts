@@ -69,20 +69,23 @@ export class PaymentMethodRepository {
   }
 
   public static async listByUser(userId: number) {
+    // Return only enabled (non-revoked) payment methods by default
     const [rows] = await db.query(
       `SELECT id, user_id, type, stripe_payment_method_id AS stripePaymentMethodId, brand, last4, exp_month AS expMonth, exp_year AS expYear, status, is_default AS isDefault, created_at AS createdAt
-       FROM payment_methods WHERE user_id = ? ORDER BY created_at DESC`,
+       FROM payment_methods WHERE user_id = ? AND status != 'REVOKED' ORDER BY created_at DESC`,
       [userId]
     );
     return rows as RowDataPacket[];
   }
 
-  public static async findById(id: number, userId: number) {
-    const [rows] = await db.query(
-      `SELECT id, user_id, type, stripe_payment_method_id AS stripePaymentMethodId, brand, last4, exp_month AS expMonth, exp_year AS expYear, status, is_default AS isDefault, created_at AS createdAt
-       FROM payment_methods WHERE id = ? AND user_id = ? LIMIT 1`,
-      [id, userId]
-    );
+  /**
+   * Find payment method by id and user.
+   * By default excludes revoked methods. Set `includeRevoked` to true to fetch revoked ones as well.
+   */
+  public static async findById(id: number, userId: number, includeRevoked = false) {
+    const sql = `SELECT id, user_id, type, stripe_payment_method_id AS stripePaymentMethodId, brand, last4, exp_month AS expMonth, exp_year AS expYear, status, is_default AS isDefault, created_at AS createdAt
+       FROM payment_methods WHERE id = ? AND user_id = ? ${includeRevoked ? '' : "AND status != 'REVOKED'"} LIMIT 1`;
+    const [rows] = await db.query(sql, [id, userId]);
     const first = (rows as RowDataPacket[])[0] as RowDataPacket | undefined;
     return first || null;
   }

@@ -135,10 +135,26 @@ export class PaymentMethodService {
     // If attached to Stripe, attempt to detach first
     if (row.stripePaymentMethodId) {
       try {
-        await stripe.paymentMethods.detach(row.stripePaymentMethodId as string);
+        // Retrieve the payment method to check if it's attached to a customer
+        const pm = await stripe.paymentMethods.retrieve(row.stripePaymentMethodId as string);
+
+        // pm.customer can be null/undefined if not attached
+        const attachedToCustomer = (pm as any).customer ? true : false;
+
+        if (attachedToCustomer) {
+          try {
+            await stripe.paymentMethods.detach(row.stripePaymentMethodId as string);
+          } catch (detachErr) {
+            // Log but don't fail the overall revocation flow
+            console.error('Error detaching payment method from Stripe', (detachErr as Error).message);
+          }
+        } else {
+          // Not attached — nothing to detach (avoid Stripe error)
+          console.info('PaymentMethod not attached to any customer in Stripe; skipping detach', row.stripePaymentMethodId);
+        }
       } catch (err) {
-        // Log the error but still attempt to revoke in DB
-        console.error('Error detaching payment method from Stripe', (err as Error).message);
+        // If retrieval fails, log and continue with DB revoke. We don't want this to block the revocation.
+        console.warn('Failed to retrieve PaymentMethod from Stripe; skipping detach. ID:', row.stripePaymentMethodId, 'error:', (err as Error).message);
       }
     }
 
