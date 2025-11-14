@@ -9,24 +9,16 @@ type RegisterResult = RowDataPacket & {
   userId: number | null;
 };
 
-function formatDateToMySQL(date: Date): string {
-  return date.toISOString().slice(0, 19).replace('T', ' ');
-}
-
-export async function registerUser(
-  dto: RegisterUserDTO,
-  hashedToken: string,
-  tokenExpiration: Date
-) {
+export async function registerUser(dto: RegisterUserDTO) {
   const passwordHash = await bcrypt.hash(dto.password, 10);
-  const formattedExpiration = formatDateToMySQL(tokenExpiration);
 
-  console.log('Formatted expiration:', formattedExpiration);
+  await db.query(
+    "CALL sp_register_user(?, ?, ?, ?, @status, @message, @user_id)",
+    [dto.email, passwordHash, dto.firstName, dto.lastName]
+  );
 
-  const [results]: any = await db.query(
-    `CALL sp_register_user(?, ?, ?, ?, ?, ?, @status, @message, @user_id);
-     SELECT @status AS status, @message AS message, @user_id AS userId;`,
-    [dto.email, passwordHash, dto.firstName, dto.lastName, hashedToken, formattedExpiration]
+  const [rows] = await db.query<RegisterResult[]>(
+    "SELECT @status AS status, @message AS message, @user_id AS userId"
   );
 
   return rows[0];
@@ -83,15 +75,4 @@ export async function setStripeCustomerId(userId: number, stripeCustomerId: stri
 
   // If neither update affected rows, return false so caller can act accordingly
   return false;
-}
-  const output = results[1][0];
-
-  if (output.status !== 'OK') {
-    throw new Error(output.message);
-  }
-
-  return {
-    id: output.userId,
-    message: output.message,
-  };
 }
