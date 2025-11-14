@@ -1,5 +1,7 @@
 import express from "express";
 import cors from "cors";
+import httpLogger from '@/core/logger/http-logger.middleware';
+import errorLogger from '@/core/logger/error-logger.middleware';
 import { swaggerDocs } from "./swagger/swagger";
 
 import { registerUserController } from "./modules/users/controllers/register.controller";
@@ -22,6 +24,9 @@ app.use(cors());
 app.use(express.json());
 // Inicializa Swagger
 swaggerDocs(app);
+
+// HTTP logging middleware (assigns requestId, logs incoming requests)
+app.use(httpLogger);
 
 app.use("/api/auth", authRoutes);
 app.post("/api/users/register", registerUserController);
@@ -58,5 +63,8 @@ app.get('/api/comments/userComments', getAllCommentsController);
 app.get("/health", (_, res) =>
   res.json({ status: "OK", message: "EcoRide backend running" })
 );
+
+// Error logger should be the last middleware
+app.use(errorLogger);
 
 export default app;

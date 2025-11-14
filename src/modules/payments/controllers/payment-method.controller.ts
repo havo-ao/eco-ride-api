@@ -1,6 +1,9 @@
 import { Request, Response } from "express";
 import { CreatePaymentMethodDto } from "../dtos/create-payment-method.dto";
 import { PaymentMethodService } from "../services/payment-method.service";
+import { childLogger } from '@/core/logger/logger';
+
+const logger = childLogger('payments-method-controller');
 
 export async function createPaymentMethodController(req: Request, res: Response) {
   const user = (req as unknown as { user?: { id: number; email?: string } }).user;
@@ -38,7 +41,7 @@ export async function listPaymentMethodsController(req: Request, res: Response) 
     const list = await PaymentMethodService.listPaymentMethods(user.id);
     return res.status(200).json({ data: list });
   } catch (err) {
-    console.error('listPaymentMethodsController error', (err as Error).message);
+    logger.error({ message: 'listPaymentMethodsController error', error: (err as Error).message, stack: (err as Error).stack });
     return res.status(500).json({ message: "ERROR_INTERNAL" });
   }
 }
@@ -61,7 +64,7 @@ export async function getPaymentMethodController(req: Request, res: Response) {
     if (!pm) return res.status(404).json({ message: 'NOT_FOUND' });
     return res.status(200).json({ data: pm });
   } catch (err) {
-    console.error('getPaymentMethodController error', (err as Error).message);
+    logger.error({ message: 'getPaymentMethodController error', error: (err as Error).message, stack: (err as Error).stack });
     return res.status(500).json({ message: 'ERROR_INTERNAL' });
   }
 }
@@ -81,7 +84,7 @@ export async function setDefaultPaymentMethodController(req: Request, res: Respo
     if (result.message === 'NOT_OWNED') return res.status(403).json({ message: 'NOT_OWNED' });
     return res.status(400).json({ message: result.message });
   } catch (err) {
-    console.error('setDefaultPaymentMethodController error', (err as Error).message);
+    logger.error({ message: 'setDefaultPaymentMethodController error', error: (err as Error).message, stack: (err as Error).stack });
     return res.status(500).json({ message: 'ERROR_INTERNAL' });
   }
 }
@@ -100,7 +103,7 @@ export async function deletePaymentMethodController(req: Request, res: Response)
     if (result.message === 'NOT_FOUND') return res.status(404).json({ message: 'NOT_FOUND' });
     return res.status(400).json({ message: result.message });
   } catch (err) {
-    console.error('deletePaymentMethodController error', (err as Error).message);
+    logger.error({ message: 'deletePaymentMethodController error', error: (err as Error).message, stack: (err as Error).stack });
     return res.status(500).json({ message: 'ERROR_INTERNAL' });
   }
 }

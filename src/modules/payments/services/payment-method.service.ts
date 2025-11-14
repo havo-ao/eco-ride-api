@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import logger from '@/core/logger/logger';
 import { CreatePaymentMethodDto } from "../dtos/create-payment-method.dto";
 import { PaymentMethodRepository } from "../repositories/payment-method.repository";
 import { getUserById, setStripeCustomerId } from "../../users/repositories/users.repo";
@@ -46,7 +47,7 @@ export class PaymentMethodService {
         }
       } catch (err) {
         isValid = false;
-        console.error('Error retrieving Stripe paymentMethod:', dto.stripePaymentMethodId, (err as Error).message);
+        logger.warn({ module: 'payments-service', message: 'Error retrieving Stripe paymentMethod', paymentMethodId: dto.stripePaymentMethodId, error: (err as Error).message });
       }
     }
 
