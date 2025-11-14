@@ -8,7 +8,6 @@ type RegisterResult = RowDataPacket & {
   message: string;
   userId: number | null;
 };
-
 export async function registerUser(dto: RegisterUserDTO) {
   const passwordHash = await bcrypt.hash(dto.password, 10);
 
@@ -82,3 +81,5 @@ export async function setStripeCustomerId(userId: number, stripeCustomerId: stri
   // If neither update affected rows, return false so caller can act accordingly
   return false;
 }
+
+ 

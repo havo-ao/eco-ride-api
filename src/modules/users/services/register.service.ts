@@ -1,22 +1,33 @@
 import { RegisterUserDTO } from '../dtos/register.dto';
 import { registerUser } from '../repositories/users.repo';
-import crypto from 'crypto';
-import bcrypt from 'bcrypt';
+import { sendEmail } from '../../email/email.service';
+import { accountActivationTemplate } from '../../email/email.templates';
+import { generateRawToken, hashToken } from '../../email/token.util';
 
 export async function registerUserService(dto: RegisterUserDTO) {
-  // Generate a verification token and expiration (24h)
-  const rawToken = crypto.randomBytes(32).toString('hex');
-  const tokenExpiration = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-  // Hash the token before persisting
-  const hashedToken = await bcrypt.hash(rawToken, 10);
+  // Generate raw token and its hashed representation
+  const rawToken = generateRawToken();
+  const hashedToken = hashToken(rawToken);
+  const tokenExpiration = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
 
   // Attach to DTO so repository/SP can persist them
   dto.hashedToken = hashedToken;
   dto.tokenExpiration = tokenExpiration.toISOString();
 
-  const result = await registerUser(dto);
+  // Register user in DB
+  const userRegistered = await registerUser(dto);
 
-  // Return DB result and the raw token so caller (likely controller) can email it
-  return { db: result, token: rawToken };
+  // Send activation email with raw token (do not log the raw token in production)
+  try {
+    await sendEmail(
+      dto.email,
+      'Confirma tu cuenta EcoRide',
+      accountActivationTemplate(rawToken)
+    );
+  } catch (err) {
+    // Log email failures but don't fail the registration
+    console.error('Failed to send activation email:', (err as Error).message);
+  }
+
+  return userRegistered;
 }
