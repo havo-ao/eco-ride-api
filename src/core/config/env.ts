@@ -7,16 +7,23 @@ type JwtExpiresIn = SignOptions["expiresIn"];
 
 export const env = {
   nodeEnv: process.env.NODE_ENV || "development",
+  port: Number(process.env.PORT || 3000),
   db: {
-    host: process.env.DB_HOST || "127.0.0.1",
+    host: process.env.DB_HOST || "localhost",
     port: Number(process.env.DB_PORT || 3306),
     user: process.env.DB_USER || "root",
     password: process.env.DB_PASSWORD || "",
     name: process.env.DB_NAME || "ecoride_db",
     connectionLimit: Number(process.env.DB_CONN_LIMIT || 10),
   },
+  mongo: {
+    uri: process.env.MONGOD_URI || "mongodb://localhost:27017/eco_ride",
+  },
   jwt: {
     secret: process.env.JWT_SECRET || "change-me",
     expiresIn: (process.env.JWT_EXPIRES_IN as JwtExpiresIn) || "1h",
+  },
+  kafka: {
+    advertisedListeners: process.env.KAFKA_ADVERTISED_LISTENERS || "PLAINTEXT://kafka:9092",
   },
 };

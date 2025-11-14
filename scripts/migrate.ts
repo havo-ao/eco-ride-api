@@ -1,4 +1,4 @@
-import { db } from "../src/core/database/mysql";
+import { initMySQL, db } from "../src/core/database/mysql";
 import fs from "node:fs";
 import path from "node:path";
 import { RowDataPacket } from "mysql2";
@@ -21,7 +21,8 @@ async function ensureMigrationTableExists() {
 
 async function runMigrations() {
   console.log("🚀 Starting migrations...");
-
+  
+  await initMySQL();
   await ensureMigrationTableExists();
 
   const migrationDir = path.join(__dirname, "../sql/migrations");
