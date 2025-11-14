@@ -1,0 +1,4 @@
+ALTER TABLE user
+ADD COLUMN verification_token VARCHAR(64),
+ADD COLUMN token_expiration DATETIME,
+ADD COLUMN is_active BOOLEAN DEFAULT FALSE;
