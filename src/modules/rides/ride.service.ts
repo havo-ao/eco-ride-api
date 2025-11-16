@@ -1,5 +1,6 @@
 import { RideRepository, RideRow } from "./ride.repository";
 import { loyaltyService } from "../loyalty/loyalty.service";
+import { TelemetryService } from "../telemetry/telemetry.service";
 
 
 export type RideStatus = "Active" | "Completed";
@@ -29,6 +30,7 @@ export interface EndRideInput {
 
 export class RideService {
   private readonly repository = new RideRepository();
+  private readonly telemetry = new TelemetryService();
 
   private mapRowToRecord(row: RideRow): RideRecord {
     return {
@@ -60,7 +62,15 @@ export class RideService {
       input.reservationId,
       input.bikeId
     );
-    return this.mapRowToRecord(row);
+    const ride = this.mapRowToRecord(row);
+    
+    await this.telemetry.sendLockEvent("unlock", {
+      bikeId: ride.bikeId,
+      rideId: ride.id,
+      userId: ride.userId,
+    });
+
+    return ride;
   }
 
   async endRide(userId: number, input: EndRideInput): Promise<RideRecord> {
@@ -69,11 +79,21 @@ export class RideService {
       input.rideId,
       input.destinationStationId
     );
+
+    const ride = this.mapRowToRecord(row);
+
+    await this.telemetry.sendLockEvent("lock", {
+      bikeId: ride.bikeId,
+      rideId: ride.id,
+      userId: ride.userId,
+    });
+
     await loyaltyService.addPoints(
-    userId,
-    10, // cantidad de puntos por viaje
-    "Puntos por viaje completado"
-  );
-    return this.mapRowToRecord(row);
+      userId,
+      10, // cantidad de puntos por viaje
+      "Puntos por viaje completado"
+    );
+
+    return ride;
   }
 }

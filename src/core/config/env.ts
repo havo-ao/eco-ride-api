@@ -24,6 +24,10 @@ export const env = {
     expiresIn: (process.env.JWT_EXPIRES_IN as JwtExpiresIn) || "1h",
   },
   kafka: {
-    advertisedListeners: process.env.KAFKA_ADVERTISED_LISTENERS || "PLAINTEXT://kafka:9092",
+    broker: process.env.KAFKA_BROKER || "localhost:9092",
+    clientId: process.env.KAFKA_CLIENT_ID || "eco-ride-api",
+    advertisedListeners:
+      process.env.KAFKA_ADVERTISED_LISTENERS || "PLAINTEXT://localhost:9092",
   },
-};
+
+  }
